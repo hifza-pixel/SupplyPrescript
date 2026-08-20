@@ -42,8 +42,8 @@ def generate_prescriptions(
             "speed_score": 0.30,
         },
     ]
-    cost_weight = 0.55
-    delay_weight = 0.45
+    cost_weight = 0.40
+    delay_weight = 0.60
     objective = np.array(
         [
             (
@@ -107,6 +107,41 @@ def generate_prescriptions(
     optimal_option = options[
         selected_index
     ]
+    audit=[]
+    for index, option in enumerate(options):
+        budget_ok = (
+            option["cost"] <= budget)
+        delay_ok = (
+            option["resulting_delay"]
+            <= max_delay_days)
+        feasible = (budget_ok and delay_ok)
+        violations = []
+        if not budget_ok:
+            violations.append("Budget exceeded")
+        if not delay_ok:
+            violations.append("Maximum delay exceeded")
+        audit.append(
+            {
+                "option_id": option["id"],
+                "option_name": option["name"],
+                "cost": option["cost"],
+                "resulting_delay": option[
+                    "resulting_delay"
+                ],
+                "budget_limit": budget,
+                "delay_limit": max_delay_days,
+                "budget_feasible": budget_ok,
+                "delay_feasible": delay_ok,
+                "feasible": feasible,
+                "status": (
+                    "FEASIBLE"
+                    if feasible
+                    else "INFEASIBLE"
+                ),
+                "violations": violations,
+            })
+    selected_index = int(np.argmax(result.x))
+    optimal_option = options[selected_index]
     alternatives = []
     for index, option in enumerate(options):
         if option["cost"] > budget:
@@ -143,6 +178,9 @@ def generate_prescriptions(
         start=1,
     ):
         option["rank"] = rank
+    recommended_option = (
+        alternatives[0]
+        if alternatives else None)
     return {
         "status": "optimal",
         "solver": "SciPy HiGHS Linear Programming",
@@ -162,4 +200,5 @@ def generate_prescriptions(
             "rank": 1,
         },
         "alternatives": alternatives,
+        "constraint_audit": audit,
     }
