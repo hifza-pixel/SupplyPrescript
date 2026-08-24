@@ -12,6 +12,7 @@ BASE_DIR = Path(__file__).resolve().parents[3]
 MODEL_DIR = BASE_DIR / "models"
 MODEL_PATH = MODEL_DIR / "delay_model.pkl"
 PREPROCESSOR_PATH = MODEL_DIR / "delay_preprocessor.pkl"
+DURATION_MODEL_PATH = MODEL_DIR / "delay_duration_model.pkl"
 try:
     model = joblib.load(MODEL_PATH)
     preprocessor = joblib.load(PREPROCESSOR_PATH)
@@ -21,6 +22,15 @@ except Exception as exc:
     MODEL_LOAD_ERROR = str(exc)
 else:
     MODEL_LOAD_ERROR = None
+try:
+    duration_model = joblib.load(
+        DURATION_MODEL_PATH
+    )
+except Exception as exc:
+    duration_model = None
+    DURATION_MODEL_LOAD_ERROR = str(exc)
+else:
+    DURATION_MODEL_LOAD_ERROR = None
 class DelayPredictionRequest(BaseModel):
     order_year: int
     order_month: int
@@ -52,22 +62,46 @@ class DelayPredictionRequest(BaseModel):
 def prediction_health() -> dict[str, Any]:
     return {
         "service": "SupplyPrescript Delay Prediction",
-        "model_loaded": model is not None,
-        "preprocessor_loaded": preprocessor is not None,
+        "classification_model_loaded": (
+            model is not None
+        ),
+        "classification_preprocessor_loaded": (
+            preprocessor is not None
+        ),
+        "duration_model_loaded": (
+            duration_model is not None
+        ),
     }
 @router.post("/delay")
-def predict_delay(request: DelayPredictionRequest) -> dict[str, Any]:
+def predict_delay(
+    request: DelayPredictionRequest,
+) -> dict[str, Any]:
     if model is None or preprocessor is None:
         raise HTTPException(
             status_code=500,
-            detail=f"ML model is not available: {MODEL_LOAD_ERROR}",
+            detail=(
+                "Classification model is not available: "
+                f"{MODEL_LOAD_ERROR}"
+            ),
         )
     try:
-        input_data = pd.DataFrame([request.model_dump()])
-        transformed_data = preprocessor.transform(input_data)
-        prediction = int(model.predict(transformed_data)[0])
-        probabilities = model.predict_proba(transformed_data)[0]
-        delay_probability = float(probabilities[1])
+        input_data = pd.DataFrame(
+            [request.model_dump()]
+        )
+        transformed_data = preprocessor.transform(
+            input_data
+        )
+        prediction = int(
+            model.predict(
+                transformed_data
+            )[0]
+        )
+        probabilities = model.predict_proba(
+            transformed_data
+        )[0]
+        delay_probability = float(
+            probabilities[1]
+        )
         if delay_probability >= 0.75:
             risk_level = "HIGH"
         elif delay_probability >= 0.45:
@@ -81,21 +115,39 @@ def predict_delay(request: DelayPredictionRequest) -> dict[str, Any]:
             )
         elif risk_level == "MEDIUM":
             recommendation = (
-                "Monitor this shipment closely and prepare "
-                "alternative fulfillment options."
+                "Monitor this shipment closely and "
+                "prepare alternative fulfillment options."
             )
         else:
             recommendation = (
                 "No immediate intervention required. "
                 "Continue normal monitoring."
             )
+        predicted_delay_days = None
+        if duration_model is not None:
+            predicted_delay = duration_model.predict(
+                input_data
+            )[0]
+            predicted_delay_days = round(
+                max(float(predicted_delay), 1.0),
+                2,)
         return {
             "prediction": prediction,
-            "delay_probability": round(delay_probability, 4),
+            "delay_probability": round(
+                delay_probability,
+                4,
+            ),
             "delay_probability_percent": round(
-                delay_probability * 100, 2
+                delay_probability * 100,
+                2,
             ),
             "risk_level": risk_level,
+            "predicted_delay_days": (
+                predicted_delay_days
+            ),
+            "duration_model_available": (
+                duration_model is not None
+            ),
             "recommendation": recommendation,
         }
     except Exception as exc:
