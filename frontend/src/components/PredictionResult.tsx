@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -5,6 +6,7 @@ import {
   generatePrescriptions,
   PrescriptionResponse,
 } from "@/services/prescriptionService";
+import { executeDecision } from "@/services/decisionService";
 
 interface PredictionResultProps {
   prediction: number;
@@ -21,7 +23,9 @@ export default function PredictionResult({
     useState<PrescriptionResponse | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const [executing, setExecuting] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const isHighRisk = prediction === 1;
 
@@ -40,6 +44,7 @@ export default function PredictionResult({
 
     setLoading(true);
     setError("");
+    setSuccess("");
 
     try {
       const result = await generatePrescriptions({
@@ -60,6 +65,46 @@ export default function PredictionResult({
     }
   }
 
+  async function handleExecuteDecision() {
+    if (!prescription) return;
+
+    const recommended =
+      prescription.recommended_option;
+
+    setExecuting(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await executeDecision({
+        shipment_id: `SHIP-${Date.now()}`,
+        option_id: recommended.id,
+        option_name: recommended.name,
+        predicted_delay_days:
+          prescription.delay_days_predicted,
+        decision_cost: recommended.cost,
+        resulting_delay_days:
+          recommended.resulting_delay,
+        budget_limit:
+          prescription.budget_constraint,
+        max_delay_limit:
+          prescription.max_delay_constraint,
+      });
+
+      setSuccess(
+        "Decision executed and saved successfully."
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Decision execution failed."
+      );
+    } finally {
+      setExecuting(false);
+    }
+  }
+
   return (
     <div className="mt-6 rounded-2xl border border-[#18334a] bg-[#0d1d2d] p-6">
       <div className="flex items-center justify-between">
@@ -68,7 +113,7 @@ export default function PredictionResult({
             AI Prediction
           </p>
 
-          <h3 className="mt-2 text-2xl font-bold">
+          <h3 className="mt-2 text-2xl font-bold text-white">
             {isHighRisk
               ? "Shipment At Risk"
               : "Shipment On Track"}
@@ -92,7 +137,7 @@ export default function PredictionResult({
             Delay Probability
           </span>
 
-          <span className="font-semibold">
+          <span className="font-semibold text-white">
             {riskPercent}%
           </span>
         </div>
@@ -100,7 +145,9 @@ export default function PredictionResult({
         <div className="h-3 overflow-hidden rounded-full bg-slate-800">
           <div
             className="h-full rounded-full bg-cyan-400 transition-all"
-            style={{ width: `${riskPercent}%` }}
+            style={{
+              width: `${riskPercent}%`,
+            }}
           />
         </div>
       </div>
@@ -111,8 +158,8 @@ export default function PredictionResult({
             Predicted Delay
           </p>
 
-          <p className="mt-2 text-3xl font-bold">
-            {predictedDelay}
+          <p className="mt-2 text-3xl font-bold text-white">
+            {predictedDelay.toFixed(2)}
             <span className="ml-2 text-base font-normal text-slate-500">
               days
             </span>
@@ -149,6 +196,12 @@ export default function PredictionResult({
         </div>
       )}
 
+      {success && (
+        <div className="mt-4 rounded-lg bg-emerald-400/10 p-3 text-sm text-emerald-400">
+          {success}
+        </div>
+      )}
+
       {prescription && (
         <div className="mt-6">
           <div className="mb-4">
@@ -156,60 +209,108 @@ export default function PredictionResult({
               Optimization Result
             </p>
 
-            <h4 className="mt-1 text-xl font-semibold">
+            <h4 className="mt-1 text-xl font-semibold text-white">
               {prescription.recommended_option.name}
             </h4>
+
+            <p className="mt-1 text-sm text-slate-400">
+              Recommended by the optimization engine
+            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {prescription.alternatives.map((option) => (
-              <div
-                key={option.id}
-                className={`rounded-xl border p-4 ${
-                  option.selected_by_solver
-                    ? "border-cyan-400 bg-cyan-400/5"
-                    : "border-[#18334a] bg-[#10283b]"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold">
-                    Option {option.id}
-                  </span>
+            {prescription.alternatives.map(
+              (option) => (
+                <div
+                  key={option.id}
+                  className={`rounded-xl border p-4 ${
+                    option.selected_by_solver
+                      ? "border-cyan-400 bg-cyan-400/5"
+                      : "border-[#18334a] bg-[#10283b]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-white">
+                      Option {option.id}
+                    </span>
 
-                  {option.selected_by_solver && (
-                    <span className="text-xs text-cyan-400">
-                      RECOMMENDED
-                    </span>
-                  )}
+                    {option.selected_by_solver && (
+                      <span className="text-xs font-semibold text-cyan-400">
+                        RECOMMENDED
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-3 font-medium text-white">
+                    {option.name}
+                  </p>
+
+                  <div className="mt-4 space-y-2 text-sm text-slate-400">
+                    <p>
+                      Cost:{" "}
+                      <span className="text-white">
+                        $
+                        {option.cost.toLocaleString()}
+                      </span>
+                    </p>
+
+                    <p>
+                      Resulting delay:{" "}
+                      <span className="text-white">
+                        {option.resulting_delay} days
+                      </span>
+                    </p>
+
+                    <p>
+                      Budget remaining:{" "}
+                      <span className="text-white">
+                        $
+                        {option.budget_remaining.toLocaleString()}
+                      </span>
+                    </p>
+
+                    <p>
+                      Objective score:{" "}
+                      <span className="text-white">
+                        {option.objective_score}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-3 font-medium">
-                  {option.name}
-                </p>
-                <div className="mt-4 space-y-2 text-sm text-slate-400">
-                  <p>
-                    Cost:{" "}
-                    <span className="text-white">
-                      ${option.cost.toLocaleString()}
-                    </span>
-                  </p>
-                  <p>
-                    Resulting delay:{" "}
-                    <span className="text-white">
-                      {option.resulting_delay} days
-                    </span>
-                  </p>
-                  <p>
-                    Budget remaining:{" "}
-                    <span className="text-white">
-                      ${option.budget_remaining.toLocaleString()}
-                    </span>
-                  </p>
-                </div>
-              </div>
-            ))}
+              )
+            )}
+          </div>
+
+          <div className="mt-6 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-5">
+            <p className="text-sm font-semibold text-emerald-400">
+              Recommended Decision
+            </p>
+
+            <p className="mt-1 text-lg font-semibold text-white">
+              {prescription.recommended_option.name}
+            </p>
+
+            <p className="mt-1 text-sm text-slate-400">
+              Cost: $
+              {prescription.recommended_option.cost.toLocaleString()}
+              {" • "}
+              Resulting delay:{" "}
+              {prescription.recommended_option.resulting_delay} days
+            </p>
+
+            <button
+              onClick={handleExecuteDecision}
+              disabled={executing}
+              className="mt-4 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {executing
+                ? "Executing Decision..."
+                : "Execute Recommended Decision"}
+            </button>
           </div>
         </div>
       )}
     </div>
   );
 }
+

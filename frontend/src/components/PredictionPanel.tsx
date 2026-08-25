@@ -1,16 +1,20 @@
 "use client";
 import { useState } from "react";
-import {predictShipment,PredictionResponse,} from "@/services/predictionService";
+import {predictShipment,PredictionResponse} from "@/services/predictionService";
 import PredictionResult from "@/components/PredictionResult";
+
 export default function PredictionPanel() {
   const [result, setResult] =
     useState<PredictionResponse | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
   async function handlePrediction() {
     setLoading(true);
     setError("");
     setResult(null);
+
     try {
       const response = await predictShipment({
         order_year: 2026,
@@ -32,14 +36,15 @@ export default function PredictionPanel() {
         order_item_product_price: 99.99,
         product_price: 99.99,
         order_item_discount: 10,
-        order_item_discount_rate: 0.10,
-        order_item_profit_ratio: 0.40,
+        order_item_discount_rate: 0.1,
+        order_item_profit_ratio: 0.4,
         order_value: 99.99,
         discount_amount: 10,
         net_order_value: 89.99,
         profit_amount: 35,
         order_status: "PROCESSING",
       });
+
       setResult(response);
     } catch (err) {
       setError(
@@ -51,16 +56,20 @@ export default function PredictionPanel() {
       setLoading(false);
     }
   }
+
   return (
     <div className="rounded-2xl border border-[#18334a] bg-[#0d1d2d] p-6">
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-white">
           Shipment Risk Prediction
         </h2>
+
         <p className="mt-1 text-sm text-slate-500">
-          Run the trained ML model against a shipment
+          Run the trained ML model and generate an
+          optimized fulfillment recommendation.
         </p>
       </div>
+
       <button
         onClick={handlePrediction}
         disabled={loading}
@@ -70,15 +79,19 @@ export default function PredictionPanel() {
           ? "Running ML Model..."
           : "Predict Shipment Risk"}
       </button>
+
       {error && (
         <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-400">
           {error}
         </div>
       )}
+
       {result && (
         <PredictionResult
           prediction={result.prediction}
-          probability={result.delay_probability}/>
+          probability={result.delay_probability}
+          predictedDelay={result.predicted_delay_days}
+        />
       )}
     </div>
   );

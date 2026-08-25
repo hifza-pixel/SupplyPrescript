@@ -8,7 +8,7 @@ from app.models.shipment import Shipment
 from app.routers.prediction import router as prediction_router
 from app.routers.prescription import router as prescription_router
 from app.routers.decision import router as decision_router
-
+from app.routers.analytics import router as analytics_router
 Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title= "SupplyPrescript API",
@@ -25,6 +25,7 @@ app.add_middleware(
 app.include_router(prediction_router)
 app.include_router(prescription_router)
 app.include_router(decision_router)
+app.include_router(analytics_router)
 @app.get("/health")
 def health_check():
     return{
