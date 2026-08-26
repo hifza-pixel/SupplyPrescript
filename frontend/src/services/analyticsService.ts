@@ -1,5 +1,4 @@
 import { apiRequest } from "./api";
-
 export interface AnalyticsSummary {
   total_decisions: number;
   high_risk_decisions: number;

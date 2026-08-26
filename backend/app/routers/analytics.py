@@ -99,3 +99,22 @@ def analytics_summary(
         ),
         "option_breakdown": option_breakdown,
     }
+@router.get("/model")
+def model_info():
+    return {
+        "model_type": "RandomForestClassifier",
+        "duration_model": "RandomForestRegressor",
+        "prediction_target": "Shipment Delay",
+        "training_records": 9363,
+        "features": 26,
+        "delay_probability_thresholds": {
+            "low": "< 45%",
+            "medium": "45% - 74.99%",
+            "high": ">= 75%"
+        },
+        "duration_model_metrics": {
+            "mae_days": 32.89,
+            "rmse_days": 41.61,
+            "r2": 0.2069
+        }
+    }
