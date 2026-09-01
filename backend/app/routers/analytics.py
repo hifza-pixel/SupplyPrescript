@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.database import get_db
 from app.models.decision import Decision
@@ -99,6 +98,42 @@ def analytics_summary(
         ),
         "option_breakdown": option_breakdown,
     }
+
+
+@router.get("/risk-distribution")
+def risk_distribution(
+    db: Session = Depends(get_db),
+):
+    decisions = (
+        db.query(Decision)
+        .order_by(Decision.created_at.desc())
+        .all()
+    )
+
+    high_risk = 0
+    medium_risk = 0
+    low_risk = 0
+
+    for decision in decisions:
+        delay = decision.predicted_delay_days
+
+        if delay >= 30:
+            high_risk += 1
+        elif delay >= 15:
+            medium_risk += 1
+        else:
+            low_risk += 1
+
+    total = high_risk + medium_risk + low_risk
+
+    return {
+        "total": total,
+        "high_risk": high_risk,
+        "medium_risk": medium_risk,
+        "low_risk": low_risk,
+    }
+
+
 @router.get("/model")
 def model_info():
     return {
@@ -110,11 +145,11 @@ def model_info():
         "delay_probability_thresholds": {
             "low": "< 45%",
             "medium": "45% - 74.99%",
-            "high": ">= 75%"
+            "high": ">= 75%",
         },
         "duration_model_metrics": {
             "mae_days": 32.89,
             "rmse_days": 41.61,
-            "r2": 0.2069
-        }
+            "r2": 0.2069,
+        },
     }

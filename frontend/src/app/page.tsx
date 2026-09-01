@@ -19,7 +19,7 @@ import PredictionPanel from "@/components/PredictionPanel";
 import DecisionHistory from "@/components/DecisionHistory";
 import ModelExplainability from "@/components/ModelExplainability";
 import DecisionROI from "@/components/DecisionROI";
-
+import RiskOverviewChart from "@/components/RiskOverviewChart";
 const navigation = [
   {
     name: "Overview",
@@ -199,22 +199,7 @@ export default function Home() {
                   />
                 </div>
 
-                <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-[#24445c]">
-                  <div className="text-center">
-                    <BarChart3
-                      className="mx-auto mb-3 text-slate-600"
-                      size={42}
-                    />
-
-                    <p className="text-sm text-slate-400">
-                      Risk analytics connected
-                    </p>
-
-                    <p className="mt-1 text-xs text-slate-600">
-                      Live prediction engine available below
-                    </p>
-                  </div>
-                </div>
+                <RiskOverviewChart />
               </div>
 
               {/* AI PIPELINE */}
