@@ -153,3 +153,35 @@ def model_info():
             "r2": 0.2069,
         },
     }
+@router.get("/risk-distribution")
+def risk_distribution(
+    db: Session = Depends(get_db),
+):
+    decisions = (
+        db.query(Decision)
+        .filter(Decision.status == "EXECUTED")
+        .all()
+    )
+
+    high_risk = 0
+    medium_risk = 0
+    low_risk = 0
+
+    for decision in decisions:
+        delay = decision.predicted_delay_days
+
+        if delay > 30:
+            high_risk += 1
+        elif delay > 15:
+            medium_risk += 1
+        else:
+            low_risk += 1
+
+    total = len(decisions)
+
+    return {
+        "total": total,
+        "high_risk": high_risk,
+        "medium_risk": medium_risk,
+        "low_risk": low_risk,
+    }

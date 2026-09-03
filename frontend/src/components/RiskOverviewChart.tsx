@@ -29,35 +29,53 @@ export default function RiskOverviewChart() {
     useState("");
 
   useEffect(() => {
-    async function loadRiskDistribution() {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/analytics/risk-distribution`
+  async function loadRiskDistribution() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/analytics/risk-distribution`
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Unable to load risk distribution"
         );
-
-        if (!response.ok) {
-          throw new Error(
-            "Unable to load risk distribution"
-          );
-        }
-
-        const result =
-          await response.json();
-
-        setData(result);
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load risk distribution"
-        );
-      } finally {
-        setLoading(false);
       }
-    }
 
+      const result = await response.json();
+
+      setData(result);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load risk distribution"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadRiskDistribution();
+
+  function handleDecisionExecuted() {
     loadRiskDistribution();
-  }, []);
+  }
+
+  window.addEventListener(
+    "decision-executed",
+    handleDecisionExecuted
+  );
+
+  return () => {
+    window.removeEventListener(
+      "decision-executed",
+      handleDecisionExecuted
+    );
+  };
+}, []);
 
   if (loading) {
     return (
